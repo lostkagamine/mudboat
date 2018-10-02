@@ -11,6 +11,8 @@ module.exports = class ChatApi extends EventEmitter {
         this.token = token;
         this.user = defaultUser;
         this.lastMsg = null;
+        this.fullLast = {};
+        this.lasts = [];
         this.poll();
         let pollf = this.poll.bind(this)
         setInterval(pollf, 10e3);
@@ -18,7 +20,7 @@ module.exports = class ChatApi extends EventEmitter {
     async poll() {
         let msgs;
         let payload = {chat_token: this.token, usernames: [this.user]};
-        if (this.lastMsg) payload.after = Math.floor(this.lastMsg.t)
+        if (this.lastMsg) payload.after = this.fullLast.t+1;
         try {
             msgs = await superagent.post(getendpoint('chats')).send(payload)
         } catch(e) {
@@ -28,15 +30,21 @@ module.exports = class ChatApi extends EventEmitter {
         msgs = msgs.body;
         if (!msgs.ok) throw new Error(msgs.msg);
         let chats = msgs.chats[this.user]
-        chats.sort((a,b) => b.t - a.t)
+        chats.sort((a,b) => a.t - b.t)
         //console.log(chats)
-        let msg = chats[0]
-        if (!msg) return;
-        if (msg.from_user === this.user && !this.options.fireOwnChats) return;
-        if (msg !== this.lastMsg) {
-            this.lastMsg = msg
-            this.emit('message', chats)
+        let msg = chats[chats.length-1]
+        for (let i of chats) {
+            if (this.lasts.indexOf(i.id) !== -1) chats[chats.indexOf(i)] = null
+            this.lasts.push(i.id)
         }
+        chats = chats.filter(a => a !== null)
+        if (!msg) return;
+        if (msg.id === this.lastMsg) return;
+        if (chats.length === 0) return;
+        this.emit('message', chats)
+        this.lastMsg = msg.id
+        this.fullLast = msg
+        if (chats.length !== 0) this.lasts = [];
     }
     async getToken(pass) {
         let temp = await superagent.post(getendpoint('get_token')).send({
