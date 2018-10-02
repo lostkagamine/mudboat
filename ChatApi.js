@@ -47,21 +47,41 @@ module.exports = class ChatApi extends EventEmitter {
         if (chats.length !== 0) this.lasts = [];
     }
     async getToken(pass) {
-        let temp = await superagent.post(getendpoint('get_token')).send({
-            pass
-        })
+        let temp;
+        try {
+            temp = await superagent.post(getendpoint('get_token')).send({
+                pass
+            })
+        } catch(e) {}
         let b = temp.body;
         if (!b.ok) return b;
         this.token = b.chat_token;
         return b.chat_token;
     }
     async tell(to, msg) {
-        let t = await superagent.post(getendpoint('create_chat')).send({
-            chat_token: this.token,
-            username: this.user,
-            tell: to,
-            msg
-        })
+        let t;
+        try {
+            t = await superagent.post(getendpoint('create_chat')).send({
+                chat_token: this.token,
+                username: this.user,
+                tell: to,
+                msg
+            })
+        } catch(e) {}
+        let b = t.body;
+        if (b.ok) return true;
+        return b;
+    }
+    async send(to, msg) {
+        let t;
+        try {
+            t = await superagent.post(getendpoint('create_chat')).send({
+                chat_token: this.token,
+                username: this.user,
+                channel: to,
+                msg
+            })
+        } catch(e) {}
         let b = t.body;
         if (b.ok) return true;
         return b;
